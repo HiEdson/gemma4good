@@ -1,0 +1,41 @@
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/app/__pycache__/
+backend/.pytest_cache/
+backend/.coverage
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.*.local
+frontend/dist/
+frontend/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+/tmp/
+__pycache__/
+*.pdb
+
+# Papers (large files)
+*.pdf
+uploads/

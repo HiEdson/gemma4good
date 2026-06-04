@@ -1,34 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gemma4Good — AI Project Portfolio
+
+A collection of end-to-end projects showcasing multimodal AI capabilities, reasoning, and full-stack development using Gemma 4.
+
+## Projects
+
+### [Research Paper Figure Analyzer](./projects/research-paper-analyzer/)
+Interactive research paper companion using multimodal understanding. Upload PDFs, ask questions about figures and methodology, get visual explanations with relevant sections highlighted.
+
+**Tech**: Gemma 4, FastAPI, Next.js, RAG, PDF Processing  
+**Status**: In Development
+
+---
+
+## Repository Structure
+
+```
+gemma4good/
+├── projects/
+│   └── research-paper-analyzer/     # Main active project
+├── README.md                         # This file
+└── CLAUDE.md                         # Global project instructions
+```
 
 ## Getting Started
 
-First, run the development server:
+Each project has its own setup instructions. Navigate to the project folder and check the README.
 
+For the Research Paper Analyzer:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd projects/research-paper-analyzer
+# See README.md for detailed setup
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Philosophy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Projects in this repo prioritize:
+- **End-to-end capability** — from model inference to polished frontend
+- **Multimodal reasoning** — leveraging Gemma 4's vision + text understanding
+- **Production mindset** — streaming, error handling, user experience
+- **Portfolio strength** — clear value proposition and technical depth

@@ -1,0 +1,26 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.6
+aiofiles==24.1.0
+pydantic==2.6.3
+pydantic-settings==2.2.1
+
+# PDF Processing
+pdfplumber==0.10.3
+PyPDF2==3.0.1
+pdf2image==1.16.3
+pillow==10.1.0
+
+# Vector Search & Embeddings
+faiss-cpu==1.14.2
+numpy>=1.26.0
+sentence-transformers==3.0.1
+
+# LLM - GGUF Quantized with llama-cpp
+llama-cpp-python==0.2.36
+
+# Async
+httpx==0.27.0
+
+# Logging
+python-json-logger==2.0.7
