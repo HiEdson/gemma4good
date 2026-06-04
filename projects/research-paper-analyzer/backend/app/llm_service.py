@@ -19,29 +19,31 @@ class LLMService:
         self.faiss_indexes = {}  # paper_id -> faiss index
         self.paper_chunks = {}   # paper_id -> list of chunks
         self.llm = None
-        self.model_path = os.getenv("GEMMA_MODEL_PATH", "./models/gemma-4-12b.gguf")
+        self.model_path = os.getenv("GEMMA_MODEL_PATH", "./models/gemma-4-12b-it-Q8_0.gguf")
 
         # Initialize LLM on startup
         self._initialize_llm()
 
     def _initialize_llm(self):
-        """Initialize GGUF-quantized Gemma 4 model."""
+        """Initialize GGUF-quantized Gemma 4 IT model (Q8_0)."""
         try:
             if not os.path.exists(self.model_path):
                 self.logger.warning(
                     f"Model not found at {self.model_path}. "
-                    "Please download from HuggingFace and place in ./models/ directory"
+                    "Please run download_model.sh to fetch the Q8_0 GGUF from unsloth/gemma-4-12b-it-GGUF"
                 )
                 return
 
             self.logger.info(f"Loading GGUF model from {self.model_path}...")
             self.llm = Llama(
                 model_path=self.model_path,
-                n_gpu_layers=33,  # Use GPU if available
-                n_ctx=8192,  # Context length
+                n_gpu_layers=-1,    # Offload all layers to GPU
+                n_ctx=16384,        # Extended context with more RAM available
+                n_batch=512,        # Token batch size for throughput
+                chat_format="gemma", # Proper Gemma IT chat template
                 verbose=False,
             )
-            self.logger.info("✓ Gemma 4 GGUF model loaded successfully")
+            self.logger.info("✓ Gemma 4 12B IT Q8_0 model loaded successfully")
         except Exception as e:
             self.logger.error(f"Failed to load GGUF model: {e}")
             self.logger.info("Continuing without local model - inference disabled")
@@ -146,22 +148,26 @@ class LLMService:
 
             # Build prompt
             context_text = "\n".join([
-                f"[{c['type'].upper()}] Page {c['page']}: {c['content'][:200]}"
+                f"[{c['type'].upper()}] Page {c['page']}: {c['content'][:500]}"
                 for c in context
             ])
 
-            prompt = f"""You are a research paper analysis expert. The user asked: "{query}"
+            system_prompt = (
+                "You are an expert research paper analyst. "
+                "Answer questions about the paper using only the provided context. "
+                "Always cite the specific page numbers and figures you reference."
+            )
+            user_message = (
+                f"Context from the paper:\n{context_text}\n\n"
+                f"Question: {query}"
+            )
 
-Relevant content from the paper:
-{context_text}
-
-Based on the paper content, provide a detailed explanation. Reference figures and pages explicitly.
-
-Answer:"""
-
-            # Stream from GGUF model
-            response = self.llm(
-                prompt,
+            # Stream from GGUF model using chat completion (Gemma IT format)
+            response = self.llm.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
                 max_tokens=1024,
                 temperature=0.7,
                 stream=True,
@@ -169,7 +175,7 @@ Answer:"""
 
             for chunk in response:
                 if "choices" in chunk and chunk["choices"]:
-                    delta = chunk["choices"][0].get("text", "")
+                    delta = chunk["choices"][0].get("delta", {}).get("content", "")
                     if delta:
                         yield delta
 

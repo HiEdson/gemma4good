@@ -1,33 +1,30 @@
 #!/bin/bash
 
-# Download Gemma 4 12B GGUF quantized model
-# This is a 4-bit quantized version (~3-4GB)
+# Download Gemma 4 12B IT GGUF Q8_0 model (~12.5GB)
+# Source: unsloth/gemma-4-12b-it-GGUF on HuggingFace
 
-echo "📥 Downloading Gemma 4 12B GGUF model..."
+echo "Downloading Gemma 4 12B IT Q8_0 GGUF model (~12.5GB)..."
 echo ""
-echo "Model sources:"
-echo "1. TheBloke/Gemma-4-12B-GGUF (4-bit quantized)"
-echo "2. Link: https://huggingface.co/TheBloke/Gemma-4-12B-GGUF"
+echo "Repo: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF"
 echo ""
 
 # Create models directory
 mkdir -p ./models
 
-# Download using wget or curl (choose one)
-# Using huggingface-hub for easier download
+# Install huggingface-hub if not present
+if ! command -v huggingface-cli &> /dev/null; then
+    echo "Installing huggingface-hub..."
+    pip install huggingface-hub
+fi
 
-echo "Installing huggingface-hub..."
-pip install huggingface-hub
-
-echo ""
-echo "Downloading model..."
-huggingface-cli download TheBloke/Gemma-4-12B-GGUF \
-  gemma-4-12b.q4_k_m.gguf \
+echo "Downloading Q8_0 model file..."
+huggingface-cli download unsloth/gemma-4-12b-it-GGUF \
+  gemma-4-12b-it-Q8_0.gguf \
   --local-dir ./models \
   --local-dir-use-symlinks False
 
 echo ""
-echo "✓ Model downloaded to ./models/"
+echo "Download complete: ./models/gemma-4-12b-it-Q8_0.gguf"
 echo ""
 echo "To use it, set:"
-echo "export GEMMA_MODEL_PATH=./models/gemma-4-12b.q4_k_m.gguf"
+echo "export GEMMA_MODEL_PATH=./models/gemma-4-12b-it-Q8_0.gguf"
