@@ -18,26 +18,21 @@ export interface PaperMetadata {
 }
 
 export interface AppState {
-  // Paper state
   paperId: string | null;
   paperMetadata: PaperMetadata | null;
   paperFile: File | null;
-
-  // Chat state
   messages: Message[];
   isLoading: boolean;
   uploadProgress: number;
-
-  // UI state
   voiceActive: boolean;
   currentPage: number;
   highlightedFigures: string[];
 
-  // Actions
   setPaper: (id: string, metadata: PaperMetadata) => void;
   setPaperFile: (file: File) => void;
   clearPaper: () => void;
   addMessage: (message: Message) => void;
+  updateMessage: (id: string, updates: Partial<Message>) => void;
   clearMessages: () => void;
   setLoading: (loading: boolean) => void;
   setUploadProgress: (progress: number) => void;
@@ -57,40 +52,18 @@ export const useAppStore = create<AppState>((set) => ({
   currentPage: 1,
   highlightedFigures: [],
 
-  setPaper: (id, metadata) =>
-    set({ paperId: id, paperMetadata: metadata }),
-
-  setPaperFile: (file) =>
-    set({ paperFile: file }),
-
-  clearPaper: () =>
-    set({
-      paperId: null,
-      paperMetadata: null,
-      paperFile: null,
-      messages: [],
-    }),
-
-  addMessage: (message) =>
+  setPaper: (id, metadata) => set({ paperId: id, paperMetadata: metadata }),
+  setPaperFile: (file) => set({ paperFile: file }),
+  clearPaper: () => set({ paperId: null, paperMetadata: null, paperFile: null, messages: [] }),
+  addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+  updateMessage: (id, updates) =>
     set((state) => ({
-      messages: [...state.messages, message],
+      messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
     })),
-
-  clearMessages: () =>
-    set({ messages: [] }),
-
-  setLoading: (loading) =>
-    set({ isLoading: loading }),
-
-  setUploadProgress: (progress) =>
-    set({ uploadProgress: progress }),
-
-  setVoiceActive: (active) =>
-    set({ voiceActive: active }),
-
-  setCurrentPage: (page) =>
-    set({ currentPage: page }),
-
-  setHighlightedFigures: (figures) =>
-    set({ highlightedFigures: figures }),
+  clearMessages: () => set({ messages: [] }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setUploadProgress: (progress) => set({ uploadProgress: progress }),
+  setVoiceActive: (active) => set({ voiceActive: active }),
+  setCurrentPage: (page) => set({ currentPage: page }),
+  setHighlightedFigures: (figures) => set({ highlightedFigures: figures }),
 }));

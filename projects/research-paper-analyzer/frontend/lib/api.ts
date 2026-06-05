@@ -87,7 +87,12 @@ export const apiClient = {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to query paper');
+        const body = await response.text().catch(() => '');
+        throw new Error(
+          response.status === 404
+            ? 'Paper not found — please re-upload the PDF (backend was restarted)'
+            : `Query failed (${response.status})${body ? ': ' + body : ''}`
+        );
       }
 
       if (!response.body) {

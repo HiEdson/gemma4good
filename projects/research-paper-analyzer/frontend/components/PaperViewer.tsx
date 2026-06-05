@@ -1,94 +1,161 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useAppStore } from '@/store/useStore';
-import { apiClient } from '@/lib/api';
+
+const QUICK_PROMPTS = [
+  'What is the main contribution?',
+  'Summarize the methodology',
+  'What do the key figures show?',
+  'What are the main results?',
+];
 
 export const PaperViewer: React.FC = () => {
-  const { paperId, paperMetadata, currentPage, setCurrentPage } = useAppStore();
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [numPages, setNumPages] = useState(0);
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const { paperMetadata, currentPage, setCurrentPage } = useAppStore();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  if (!paperMetadata) return null;
 
-  // For now, we'll display a placeholder since react-pdf requires complex setup
-  // In production, implement with pdfjs or react-pdf
-
-  if (!paperId || !paperMetadata) {
-    return (
-      <div className="flex items-center justify-center h-full text-gray-500">
-        No paper loaded
-      </div>
-    );
-  }
+  const pages = Array.from({ length: paperMetadata.num_pages }, (_, i) => i + 1);
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b p-4 bg-gray-50">
-        <h2 className="font-semibold text-gray-900">
-          {paperMetadata.filename}
-        </h2>
-        <p className="text-sm text-gray-600">
-          Pages: {paperMetadata.num_pages} | Figures: {paperMetadata.num_figures}
-        </p>
-      </div>
-
-      {/* PDF Viewer Area */}
-      <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl text-center">
-          <svg
-            className="mx-auto mb-4 w-16 h-16 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-            />
-          </svg>
-          <h3 className="font-semibold text-gray-900 mb-2">PDF Viewer</h3>
-          <p className="text-gray-600 text-sm mb-4">
-            Paper viewer will display here with figure highlighting
-          </p>
-          <p className="text-xs text-gray-500">
-            Currently showing {paperMetadata.num_pages} pages
-          </p>
-
-          {/* Pagination example */}
-          <div className="mt-4 flex justify-center gap-2">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50"
-            >
-              ← Prev
-            </button>
-            <span className="px-3 py-1 text-sm text-gray-600">
-              Page {currentPage} / {paperMetadata.num_pages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(Math.min(paperMetadata.num_pages, currentPage + 1))}
-              disabled={currentPage === paperMetadata.num_pages}
-              className="px-3 py-1 bg-gray-200 rounded text-sm disabled:opacity-50"
-            >
-              Next →
-            </button>
+    <div className="h-full flex flex-col overflow-hidden" style={{ background: '#080912' }}>
+      {/* Paper title bar */}
+      <div className="flex-shrink-0 px-5 py-4" style={{ borderBottom: '1px solid #1e2035' }}>
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+            style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium leading-tight truncate" style={{ color: '#e2e8f0' }}>
+              {paperMetadata.filename}
+            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-xs" style={{ color: '#475569' }}>{paperMetadata.num_pages} pages</span>
+              <span style={{ color: '#1e2035' }}>·</span>
+              <span className="text-xs" style={{ color: '#475569' }}>{paperMetadata.num_figures} figures detected</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Footer - Status */}
-      {error && (
-        <div className="border-t p-4 bg-red-50 text-red-700 text-sm">
-          {error}
+      {/* Stats row */}
+      <div className="flex-shrink-0 grid grid-cols-3 gap-px" style={{ borderBottom: '1px solid #1e2035', background: '#1e2035' }}>
+        {[
+          { label: 'Pages', value: paperMetadata.num_pages },
+          { label: 'Figures', value: paperMetadata.num_figures },
+          { label: 'Indexed', value: '✓' },
+        ].map((stat) => (
+          <div key={stat.label} className="text-center py-3" style={{ background: '#080912' }}>
+            <p className="text-base font-semibold" style={{ color: '#f1f5f9' }}>{stat.value}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#475569' }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Page navigator */}
+      <div className="flex-shrink-0 px-5 py-4" style={{ borderBottom: '1px solid #1e2035' }}>
+        <p className="text-xs font-medium mb-3 uppercase tracking-wider" style={{ color: '#475569' }}>
+          Pages
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {pages.map((p) => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className="w-8 h-8 rounded-lg text-xs font-medium transition-all"
+              style={
+                p === currentPage
+                  ? { background: '#6366f1', color: 'white' }
+                  : { background: '#0e0f1a', color: '#475569', border: '1px solid #1e2035' }
+              }
+            >
+              {p}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* Quick prompts */}
+      <div className="flex-1 px-5 py-4 overflow-y-auto">
+        <p className="text-xs font-medium mb-3 uppercase tracking-wider" style={{ color: '#475569' }}>
+          Quick questions
+        </p>
+        <div className="space-y-2">
+          {QUICK_PROMPTS.map((prompt) => (
+            <QuickPromptButton key={prompt} prompt={prompt} />
+          ))}
+        </div>
+
+        <div className="mt-6 p-4 rounded-xl" style={{ background: '#0e0f1a', border: '1px solid #1e2035' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-5 rounded flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+              <span className="text-white text-xs font-bold">G</span>
+            </div>
+            <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>Gemma 4 · Local</span>
+            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          </div>
+          <p className="text-xs leading-relaxed" style={{ color: '#475569' }}>
+            Running fully on your machine. No data leaves your computer.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
+
+function QuickPromptButton({ prompt }: { prompt: string }) {
+  const { paperId, addMessage, updateMessage, setLoading } = useAppStore();
+  const { apiClient } = require('@/lib/api');
+
+  const handleClick = async () => {
+    if (!paperId) return;
+
+    const userMsg = {
+      id: Date.now().toString(),
+      role: 'user' as const,
+      content: prompt,
+      timestamp: new Date(),
+    };
+    addMessage(userMsg);
+
+    const assistantId = (Date.now() + 1).toString();
+    addMessage({ id: assistantId, role: 'assistant', content: '', timestamp: new Date() });
+    setLoading(true);
+
+    let full = '';
+    try {
+      await apiClient.queryPaperStream(paperId, prompt, 3,
+        (chunk: string) => {
+          full += chunk;
+          updateMessage(assistantId, { content: full });
+        },
+        () => {}
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all group"
+      style={{ background: '#0e0f1a', border: '1px solid #1e2035', color: '#94a3b8' }}
+      onMouseOver={(e) => {
+        e.currentTarget.style.borderColor = '#6366f1';
+        e.currentTarget.style.color = '#e2e8f0';
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.borderColor = '#1e2035';
+        e.currentTarget.style.color = '#94a3b8';
+      }}
+    >
+      {prompt}
+    </button>
+  );
+}

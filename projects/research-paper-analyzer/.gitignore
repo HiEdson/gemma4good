@@ -39,3 +39,10 @@ __pycache__/
 # Papers (large files)
 *.pdf
 uploads/
+
+# Model weights (large binary files — download locally via download_model.sh)
+backend/models/
+backend/models/.cache/
+*.gguf
+*.bin
+*.safetensors

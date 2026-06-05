@@ -1,0 +1,6 @@
+FROM ./models/gemma-4-12b-it-Q8_0.gguf
+
+
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.7
+PARAMETER num_predict 1024

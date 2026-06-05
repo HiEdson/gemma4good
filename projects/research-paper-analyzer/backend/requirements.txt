@@ -16,8 +16,8 @@ faiss-cpu==1.14.2
 numpy>=1.26.0
 sentence-transformers==3.0.1
 
-# LLM - GGUF Quantized with llama-cpp (>=0.3.0 required for Gemma 4 architecture)
-llama-cpp-python>=0.3.0
+# LLM - via Ollama (no compilation needed)
+# llama-cpp-python removed; inference handled by Ollama server
 
 # Async
 httpx==0.27.0

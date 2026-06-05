@@ -1,77 +1,88 @@
-# Setup & Run with Gemma 4 GGUF (4-bit Quantized)
+# Setup & Run with Gemma 4 GGUF (Q8_0 — High Quality)
 
 ## Quick Start (2 Steps)
 
-### Step 1: Download Gemma 4 GGUF Model (~3-4GB)
+### Step 1: Download Gemma 4 IT Q8_0 Model (~12.5GB)
 
 ```bash
-cd /workspaces/gemma4good/projects/research-paper-analyzer/backend
+cd projects/research-paper-analyzer/backend
 
-# Make download script executable
 chmod +x download_model.sh
-
-# Download Gemma 4 GGUF (TheBloke 4-bit quantized)
 bash download_model.sh
 ```
 
-This downloads `gemma-4-12b.q4_k_m.gguf` (~3-4GB) to `./models/`
+This downloads `gemma-4-12b-it-Q8_0.gguf` (~12.5GB) from
+[unsloth/gemma-4-12b-it-GGUF](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF)
+to `./models/`.
 
 ### Step 2: Install & Run
 
 ```bash
-# Install dependencies
-cd /workspaces/gemma4good/projects/research-paper-analyzer/backend
+cd projects/research-paper-analyzer/backend
+
+# Install dependencies (llama-cpp-python >=0.3.0 required for Gemma 4)
 source venv/bin/activate
 pip install -r requirements.txt
 
 # Run backend
-export GEMMA_MODEL_PATH=./models/gemma-4-12b.q4_k_m.gguf
+export GEMMA_MODEL_PATH=./models/gemma-4-12b-it-Q8_0.gguf
 uvicorn app.main:app --reload --port 8000
 ```
 
 In another terminal:
 ```bash
-# Run frontend
-cd /workspaces/gemma4good/projects/research-paper-analyzer/frontend
+cd projects/research-paper-analyzer/frontend
 npm install
 npm run dev
 ```
 
 Access: **http://localhost:3000**
 
-## Why GGUF?
+## Model Details
 
-- ✅ **Size**: 3-4GB (vs 13GB for full model)
-- ✅ **Speed**: Fast inference with CPU
-- ✅ **Quality**: 4-bit quantization maintains quality
-- ✅ **No Docker**: Runs natively
-- ✅ **No GPU needed**: Works on CPU (slower but reliable)
+| Property | Value |
+|---|---|
+| Repo | `unsloth/gemma-4-12b-it-GGUF` |
+| File | `gemma-4-12b-it-Q8_0.gguf` |
+| Quantization | Q8_0 (8-bit) |
+| Size | ~12.5 GB |
+| RAM required | 16 GB+ recommended |
+| GPU VRAM | 14 GB+ to run fully on GPU |
 
-## Model Sources
+All transformer layers are offloaded to GPU by default (`n_gpu_layers=-1`).
+If your VRAM is insufficient, set `n_gpu_layers` to a lower value in `llm_service.py`.
 
-- **TheBloke/Gemma-4-12B-GGUF** (Recommended)
-  - Link: https://huggingface.co/TheBloke/Gemma-4-12B-GGUF
-  - 4-bit quantized: 3.4GB
-  - 5-bit quantized: 4.0GB
+## Installing llama-cpp-python with GPU support
+
+For CUDA (NVIDIA):
+```bash
+CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python>=0.3.0 --upgrade --force-reinstall
+```
+
+For Metal (Apple Silicon):
+```bash
+CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python>=0.3.0 --upgrade --force-reinstall
+```
+
+CPU only:
+```bash
+pip install llama-cpp-python>=0.3.0
+```
 
 ## Troubleshooting
 
-**Error: "Model not found"**
-- Make sure model is in `./models/gemma-4-12b.q4_k_m.gguf`
-- Check `GEMMA_MODEL_PATH` environment variable
+**"Model not found"**
+- Confirm the file is at `./models/gemma-4-12b-it-Q8_0.gguf`
+- Or set `GEMMA_MODEL_PATH` to the correct path
+
+**Out of VRAM**
+- Reduce GPU offload in `llm_service.py`: change `n_gpu_layers=-1` to a lower number (e.g. `20`)
+- The model will split between GPU and CPU automatically
 
 **Slow inference**
-- Normal for CPU. Consider GPU if available
-- Reduce `n_ctx` in llm_service.py if memory issues
+- Make sure llama-cpp-python was compiled with CUDA/Metal support (see above)
+- Reduce `n_ctx` in `llm_service.py` to lower memory pressure
 
 **Download fails**
-- Ensure HuggingFace CLI is installed: `pip install huggingface-hub`
-- Check internet connection
-- Try manual download from HuggingFace
-
-## Next: Upload & Test
-
-1. Open http://localhost:3000
-2. Upload a research paper PDF
-3. Ask questions about it
-4. Watch Gemma 4 analyze in real-time!
+- Ensure `huggingface-hub` is installed: `pip install huggingface-hub`
+- For gated models, authenticate first: `huggingface-cli login`

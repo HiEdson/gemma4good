@@ -1,62 +1,45 @@
 import logging
 import json
+import httpx
 from typing import AsyncGenerator, Dict, Any, List
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import faiss
 import os
-from llama_cpp import Llama
 
 logger = logging.getLogger(__name__)
 
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4")
+
 
 class LLMService:
-    """Handle LLM inference with GGUF quantized Gemma 4."""
+    """Handle LLM inference via Ollama (Gemma 4 12B IT Q8_0)."""
 
     def __init__(self):
         self.logger = logger
         self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
         self.faiss_indexes = {}  # paper_id -> faiss index
         self.paper_chunks = {}   # paper_id -> list of chunks
-        self.llm = None
-        self.model_path = os.getenv("GEMMA_MODEL_PATH", "./models/gemma-4-12b-it-Q8_0.gguf")
 
-        # Initialize LLM on startup
-        self._initialize_llm()
-
-    def _initialize_llm(self):
-        """Initialize GGUF-quantized Gemma 4 IT model (Q8_0)."""
+    def is_ready(self) -> bool:
+        """Check if Ollama is reachable and the model is loaded."""
         try:
-            if not os.path.exists(self.model_path):
-                self.logger.warning(
-                    f"Model not found at {self.model_path}. "
-                    "Please run download_model.sh to fetch the Q8_0 GGUF from unsloth/gemma-4-12b-it-GGUF"
-                )
-                return
-
-            self.logger.info(f"Loading GGUF model from {self.model_path}...")
-            self.llm = Llama(
-                model_path=self.model_path,
-                n_gpu_layers=-1,    # Offload all layers to GPU
-                n_ctx=16384,        # Extended context with more RAM available
-                n_batch=512,        # Token batch size for throughput
-                chat_format="gemma", # Proper Gemma IT chat template
-                verbose=False,
-            )
-            self.logger.info("✓ Gemma 4 12B IT Q8_0 model loaded successfully")
-        except Exception as e:
-            self.logger.error(f"Failed to load GGUF model: {e}")
-            self.logger.info("Continuing without local model - inference disabled")
+            response = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+            if response.status_code != 200:
+                return False
+            models = [m["name"] for m in response.json().get("models", [])]
+            return any(OLLAMA_MODEL in m for m in models)
+        except Exception:
+            return False
 
     async def initialize_paper_embeddings(self, paper_data: Dict[str, Any]) -> None:
         """Create embeddings and FAISS index for a paper."""
         paper_id = paper_data.get("paper_id", "default")
 
-        # Create chunks from pages and figures
         chunks = []
         chunk_texts = []
 
-        # Add page chunks
         for page in paper_data.get("pages", []):
             text = page.get("text", "")
             if text.strip():
@@ -67,7 +50,6 @@ class LLMService:
                 })
                 chunk_texts.append(text)
 
-        # Add figure descriptions
         for figure in paper_data.get("figures", []):
             fig_text = f"Figure on page {figure['page']}: {figure.get('description', 'Image')}"
             chunks.append({
@@ -82,15 +64,12 @@ class LLMService:
             self.logger.warning(f"No text chunks found for paper {paper_id}")
             return
 
-        # Generate embeddings
         embeddings = self.embedding_model.encode(chunk_texts, convert_to_numpy=True)
 
-        # Create FAISS index
         dimension = embeddings.shape[1]
         index = faiss.IndexFlatL2(dimension)
         index.add(embeddings.astype(np.float32))
 
-        # Store
         self.faiss_indexes[paper_id] = index
         self.paper_chunks[paper_id] = chunks
 
@@ -107,14 +86,11 @@ class LLMService:
             self.logger.warning(f"No index for paper {paper_id}")
             return []
 
-        # Encode query
         query_embedding = self.embedding_model.encode([query], convert_to_numpy=True)
 
-        # Search
         index = self.faiss_indexes[paper_id]
         distances, indices = index.search(query_embedding.astype(np.float32), min(top_k, index.ntotal))
 
-        # Retrieve chunks
         chunks = self.paper_chunks[paper_id]
         results = []
 
@@ -132,21 +108,21 @@ class LLMService:
         query: str,
         top_k: int = 3
     ) -> AsyncGenerator[str, None]:
-        """Query a paper and stream response from Gemma 4 GGUF."""
-        if not self.llm:
-            yield "Error: Gemma 4 model not loaded. Please download the GGUF model and place in ./models/ directory"
+        """Query a paper and stream response from Gemma 4 via Ollama."""
+        if not self.is_ready():
+            yield (
+                f"Error: Ollama is not running or model '{OLLAMA_MODEL}' is not loaded. "
+                f"Run: ollama serve  (in a separate terminal), then from backend/: ollama create {OLLAMA_MODEL} -f Modelfile"
+            )
             return
 
         try:
-            # Initialize embeddings if not done
             paper_id = paper_data.get("paper_id", "default")
             if paper_id not in self.faiss_indexes:
                 await self.initialize_paper_embeddings(paper_data)
 
-            # Retrieve relevant context
             context = await self.retrieve_context(paper_id, query, top_k)
 
-            # Build prompt
             context_text = "\n".join([
                 f"[{c['type'].upper()}] Page {c['page']}: {c['content'][:500]}"
                 for c in context
@@ -162,22 +138,34 @@ class LLMService:
                 f"Question: {query}"
             )
 
-            # Stream from GGUF model using chat completion (Gemma IT format)
-            response = self.llm.create_chat_completion(
-                messages=[
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
-                max_tokens=1024,
-                temperature=0.7,
-                stream=True,
-            )
+                "stream": True,
+                "options": {
+                    "num_ctx": 16384,
+                    "temperature": 0.7,
+                    "num_predict": 1024,
+                },
+            }
 
-            for chunk in response:
-                if "choices" in chunk and chunk["choices"]:
-                    delta = chunk["choices"][0].get("delta", {}).get("content", "")
-                    if delta:
-                        yield delta
+            async with httpx.AsyncClient(timeout=300) as client:
+                async with client.stream("POST", f"{OLLAMA_BASE_URL}/api/chat", json=payload) as response:
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+                        try:
+                            data = json.loads(line)
+                            content = data.get("message", {}).get("content", "")
+                            if content:
+                                yield content
+                            if data.get("done"):
+                                break
+                        except json.JSONDecodeError:
+                            continue
 
         except Exception as e:
             self.logger.error(f"Query failed: {e}")
